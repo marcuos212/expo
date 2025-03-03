@@ -1,4 +1,129 @@
-<!-- Banner Image -->
+# Acuario-marino-versi-n-final-
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, Button, FlatList, Alert, ScrollView, ToastAndroid } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
+import { LineChart } from 'react-native-chart-kit';
+import { Dimensions } from 'react-native';
+import { Calendar } from 'react-native-calendars';
+
+const screenWidth = Dimensions.get("window").width;
+
+export default function App() {
+  const [registros, setRegistros] = useState([]);
+  const [temperatura, setTemperatura] = useState('');
+  const [ph, setPh] = useState('');
+  const [salinidad, setSalinidad] = useState('');
+  const [amoniaco, setAmoniaco] = useState('');
+  const [nitritos, setNitritos] = useState('');
+  const [nitratos, setNitratos] = useState('');
+  const [viewMode, setViewMode] = useState('list'); // 'list' o 'calendar'
+  const [selectedDate, setSelectedDate] = useState(null);
+
+  useEffect(() => {
+    cargarRegistros();
+    Notifications.requestPermissionsAsync();
+  }, []);
+
+  useEffect(() => {
+    AsyncStorage.setItem('registros', JSON.stringify(registros));
+  }, [registros]);
+
+  const cargarRegistros = async () => {
+    const data = await AsyncStorage.getItem('registros');
+    if (data) {
+      setRegistros(JSON.parse(data));
+    }
+  };
+
+  const guardarRegistro = async () => {
+    if (!temperatura || !ph || !salinidad || !amoniaco || !nitritos || !nitratos) {
+      Alert.alert("Error", "Todos los campos deben tener un valor vÃ¡lido.");
+      return;
+    }
+
+    const nuevoRegistro = {
+      fecha: new Date().toISOString(),
+      temperatura: parseFloat(temperatura),
+      ph: parseFloat(ph),
+      salinidad: parseFloat(salinidad),
+      amoniaco: parseFloat(amoniaco),
+      nitritos: parseFloat(nitritos),
+      nitratos: parseFloat(nitratos)
+    };
+
+    setRegistros([nuevoRegistro, ...registros]);
+    verificarParametros(nuevoRegistro);
+    limpiarCampos();
+    ToastAndroid.show("Registro guardado con Ã©xito", ToastAndroid.SHORT);
+  };
+
+  const limpiarCampos = () => {
+    setTemperatura('');
+    setPh('');
+    setSalinidad('');
+    setAmoniaco('');
+    setNitritos('');
+    setNitratos('');
+  };
+
+  const verificarParametros = (registro) => {
+    const alertas = [];
+    if (registro.temperatura < 24 || registro.temperatura > 26) alertas.push(`Temperatura fuera del rango: ${registro.temperatura}Â°C`);
+    if (registro.ph < 7.8 || registro.ph > 8.4) alertas.push(`pH fuera del rango: ${registro.ph}`);
+    if (registro.salinidad < 30 || registro.salinidad > 35) alertas.push(`Salinidad fuera del rango: ${registro.salinidad} ppt`);
+    if (registro.amoniaco > 0.1) alertas.push(`Amoniaco fuera del rango: ${registro.amoniaco}`);
+    if (registro.nitritos > 0.2) alertas.push(`Nitritos fuera del rango: ${registro.nitritos}`);
+    if (registro.nitratos > 20) alertas.push(`Nitratos fuera del rango: ${registro.nitratos}`);
+    
+    alertas.forEach(alerta => enviarAlerta("Alerta de ParÃ¡metro", alerta));
+  };
+
+  const enviarAlerta = async (titulo, mensaje) => {
+    await Notifications.scheduleNotificationAsync({
+      content: { title: titulo, body: mensaje },
+      trigger: null,
+    });
+    Alert.alert(titulo, mensaje);
+  };
+
+  const eliminarRegistros = async () => {
+    Alert.alert("Confirmar", "Â¿Seguro que deseas borrar todos los registros?", [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Borrar", onPress: async () => {
+          setRegistros([]);
+          await AsyncStorage.removeItem('registros');
+          ToastAndroid.show("Registros eliminados", ToastAndroid.SHORT);
+        }
+      }
+    ]);
+  };
+
+  return (
+    <ScrollView style={{ padding: 20 }}>
+      <View style={{ marginBottom: 20 }}>
+        <Button title={`Cambiar a ${viewMode === 'list' ? 'Calendario' : 'Lista'}`} onPress={() => setViewMode(viewMode === 'list' ? 'calendar' : 'list')} />
+        <Button title="Eliminar Registros" onPress={eliminarRegistros} color="red" />
+      </View>
+
+      {viewMode === 'list' ? (
+        <View>
+          <Text style={{ fontSize: 20, marginBottom: 10 }}>Nuevo Registro</Text>
+          {[['Temperatura (Â°C)', setTemperatura], ['pH', setPh], ['Salinidad (ppt)', setSalinidad], ['Amoniaco', setAmoniaco], ['Nitritos', setNitritos], ['Nitratos', setNitratos]].map(([label, setter], index) => (
+            <View key={index}>
+              <Text>{label}:</Text>
+              <TextInput value={String(setter)} onChangeText={setter} keyboardType="numeric" style={{ borderBottomWidth: 1, marginBottom: 10 }} />
+            </View>
+          ))}
+          <Button title="Guardar Registro" onPress={guardarRegistro} />
+        </View>
+      ) : (
+        <Calendar onDayPress={(day) => setSelectedDate(day.dateString)} markedDates={{ [selectedDate]: { selected: true, selectedColor: 'green' } }} />
+      )}
+    </ScrollView>
+  );
+}
+ Banner Image -->
 
 <p align="center">
   <a href="https://expo.dev/">
